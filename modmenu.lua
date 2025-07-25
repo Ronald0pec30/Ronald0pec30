@@ -1,129 +1,149 @@
---💥 Romario Script [NUEVO] con Menú Desplegable y Movible
---✅ ESP (wallhack)
---✅ Atravesar Muros (Noclip)
---✅ Protección con Burbuja (manual)
---✅ Interfaz móvil completa
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 
--- GUI Principal
+-- Aplicar propiedades para minimizar rebotes
+local function applyNicePhysics(character)
+    local props = PhysicalProperties.new(0.7, 0.5, 0, 1, 100)
+    for _, part in pairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CustomPhysicalProperties = props
+        end
+    end
+    character.DescendantAdded:Connect(function(v)
+        if v:IsA("BasePart") then
+            v.CustomPhysicalProperties = props
+        end
+    end)
+end
+
+-- Antinoclip basado en raycasting
+local noclipOn = false
+local lastPos = nil
+local raycastParams = RaycastParams.new()
+raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+raycastParams.FilterDescendantsInstances = {} -- actualizado por jugador
+raycastParams.IgnoreWater = true
+
+RunService.Heartbeat:Connect(function()
+    if noclipOn and char and char:FindFirstChild("HumanoidRootPart") then
+        local root = char.HumanoidRootPart
+        if lastPos and (root.Position - lastPos).Magnitude > 0.1 then
+            raycastParams.FilterDescendantsInstances = {char}
+            local result = workspace:Raycast(lastPos, root.Position - lastPos, raycastParams)
+            if result and result.Instance and result.Instance.CanCollide then
+                root.CFrame = CFrame.new(lastPos)
+                root.AssemblyLinearVelocity = Vector3.new()
+                root.AssemblyAngularVelocity = Vector3.new()
+            end
+        end
+        lastPos = root.Position
+    end
+end)
+
+local function enablePowerNoclip()
+    if not char then return end
+    applyNicePhysics(char)
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid then humanoid:ChangeState(Enum.HumanoidStateType.Physics) end
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+            part.Massless = true
+        end
+    end
+    noclipOn = true
+    lastPos = char.HumanoidRootPart.Position
+end
+
+local function disablePowerNoclip()
+    if not char then return end
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid then humanoid:ChangeState(Enum.HumanoidStateType.Running) end
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = true
+            part.Massless = false
+            part.CustomPhysicalProperties = nil
+        end
+    end
+    noclipOn = false
+end
+
+-- GUI PRINCIPAL
 local gui = Instance.new("ScreenGui")
 gui.Name = "RomarioScript"
 gui.ResetOnSpawn = false
 gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
--- Botón para Mostrar/Ocultar Menú
 local menuButton = Instance.new("TextButton")
-menuButton.Size = UDim2.new(0, 150, 0, 30)
-menuButton.Position = UDim2.new(0, 10, 0, 10)
+menuButton.Size = UDim2.new(0,150,0,30)
+menuButton.Position = UDim2.new(0,10,0,10)
 menuButton.Text = "☰ Menú"
-menuButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+menuButton.BackgroundColor3 = Color3.fromRGB(50,50,50)
 menuButton.TextColor3 = Color3.new(1,1,1)
 menuButton.TextScaled = true
 menuButton.Parent = gui
 
--- Contenedor del Menú
 local menuFrame = Instance.new("Frame")
-menuFrame.Size = UDim2.new(0, 220, 0, 160)
-menuFrame.Position = UDim2.new(0, 10, 0, 50)
-menuFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+menuFrame.Size = UDim2.new(0,220,0,160)
+menuFrame.Position = UDim2.new(0,10,0,50)
+menuFrame.BackgroundColor3 = Color3.fromRGB(20,20,20)
 menuFrame.Visible = false
 menuFrame.Parent = gui
 
--- Diseño Vertical para Botones
 local uiList = Instance.new("UIListLayout")
-uiList.Padding = UDim.new(0, 5)
+uiList.Padding = UDim.new(0,5)
 uiList.FillDirection = Enum.FillDirection.Vertical
 uiList.SortOrder = Enum.SortOrder.LayoutOrder
 uiList.Parent = menuFrame
 
--- Mostrar/Ocultar Menú
 menuButton.MouseButton1Click:Connect(function()
     menuFrame.Visible = not menuFrame.Visible
 end)
 
--- Funcionalidad ESP
+-- ESP
 local function activarESP()
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
             if not player.Character.Head:FindFirstChild("ESP") then
                 local esp = Instance.new("BillboardGui", player.Character.Head)
-                esp.Size = UDim2.new(0, 100, 0, 40)
+                esp.Size = UDim2.new(0,100,0,40)
                 esp.AlwaysOnTop = true
                 esp.Name = "ESP"
                 local label = Instance.new("TextLabel", esp)
-                label.Size = UDim2.new(1, 0, 1, 0)
+                label.Size = UDim2.new(1,0,1,0)
                 label.Text = player.Name
                 label.BackgroundTransparency = 1
-                label.TextColor3 = Color3.fromRGB(255, 0, 0)
+                label.TextColor3 = Color3.fromRGB(255,0,0)
                 label.TextScaled = true
             end
         end
     end
 end
 local btnESP = Instance.new("TextButton")
-btnESP.Size = UDim2.new(0, 200, 0, 40)
+btnESP.Size = UDim2.new(0,200,0,40)
 btnESP.Text = "🔍 Activar ESP"
-btnESP.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+btnESP.BackgroundColor3 = Color3.fromRGB(0,170,255)
 btnESP.TextColor3 = Color3.new(1,1,1)
 btnESP.TextScaled = true
 btnESP.LayoutOrder = 1
 btnESP.Parent = menuFrame
 btnESP.MouseButton1Click:Connect(activarESP)
 
--- Funcionalidad Noclip Mejorado
-local noclipOn = false
-local function enablePowerNoclip()
-    if LocalPlayer.Character then
-        -- Poner al Humanoid en estado de física para ignorar colisiones
-        local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-        end
-        -- Configurar todos los BaseParts
-        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-                part.Massless = true
-                part.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
-            end
-        end
-    end
-end
-local function disablePowerNoclip()
-    if LocalPlayer.Character then
-        -- Restaurar estado de humanoide
-        local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid:ChangeState(Enum.HumanoidStateType.Running)
-        end
-        -- Restaurar colisión en los BaseParts
-        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = true
-                part.Massless = false
-                part.CustomPhysicalProperties = nil
-            end
-        end
-    end
-end
-
--- Botón Noclip
+-- Noclip
 local btnNoclip = Instance.new("TextButton")
-btnNoclip.Size = UDim2.new(0, 200, 0, 40)
+btnNoclip.Size = UDim2.new(0,200,0,40)
 btnNoclip.Text = "🚪 Atravesar Muros: OFF"
-btnNoclip.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+btnNoclip.BackgroundColor3 = Color3.fromRGB(255,100,100)
 btnNoclip.TextColor3 = Color3.new(1,1,1)
 btnNoclip.TextScaled = true
 btnNoclip.LayoutOrder = 2
 btnNoclip.Parent = menuFrame
 btnNoclip.MouseButton1Click:Connect(function()
-    noclipOn = not noclipOn
-    if noclipOn then
+    if not noclipOn then
         enablePowerNoclip()
         btnNoclip.Text = "🚪 Atravesar Muros: ON"
     else
@@ -132,9 +152,8 @@ btnNoclip.MouseButton1Click:Connect(function()
     end
 end)
 
--- Funcionalidad Protección
-local shield, weld
-local shieldOn = false
+-- Protección (burbuja)
+local shield, weld; local shieldOn = false
 local function crearShield()
     if shield then shield:Destroy() end
     if weld then weld:Destroy() end
@@ -161,9 +180,9 @@ local function removerShield()
     shield, weld = nil, nil
 end
 local btnShield = Instance.new("TextButton")
-btnShield.Size = UDim2.new(0, 200, 0, 40)
-btnShield.Text = "🛡️ Protección: OFF"
-btnShield.BackgroundColor3 = Color3.fromRGB(255, 85, 85)
+btnShield.Size = UDim2.new(0,200,0,40)
+btnShield.Text = "🛡 Protección: OFF"
+btnShield.BackgroundColor3 = Color3.fromRGB(255,85,85)
 btnShield.TextColor3 = Color3.new(1,1,1)
 btnShield.TextScaled = true
 btnShield.LayoutOrder = 3
@@ -172,51 +191,41 @@ btnShield.MouseButton1Click:Connect(function()
     shieldOn = not shieldOn
     if shieldOn then
         crearShield()
-        btnShield.Text = "🛡️ Protección: ON"
-        btnShield.BackgroundColor3 = Color3.fromRGB(85, 255, 85)
+        btnShield.Text = "🛡 Protección: ON"
+        btnShield.BackgroundColor3 = Color3.fromRGB(85,255,85)
     else
         removerShield()
-        btnShield.Text = "🛡️ Protección: OFF"
-        btnShield.BackgroundColor3 = Color3.fromRGB(255, 85, 85)
+        btnShield.Text = "🛡 Protección: OFF"
+        btnShield.BackgroundColor3 = Color3.fromRGB(255,85,85)
     end
 end)
 
--- Mantener protección al reaparecer
 LocalPlayer.CharacterAdded:Connect(function(newChar)
     char = newChar
-    if shieldOn then
-        task.wait(1)
-        crearShield()
-    end
+    if shieldOn then task.wait(1); crearShield() end
 end)
 
--- Hacer el menú movible arrastrando el botón
+-- Drag para mover menú
 local dragging, dragInput, dragStart, startPos
 menuButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = menuFrame.Position
+        dragging = true; dragStart = input.Position; startPos = menuFrame.Position
         input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
         end)
     end
 end)
 menuButton.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+    if input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch then
         dragInput = input
     end
 end)
 UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
+    if input==dragInput and dragging then
         local delta = input.Position - dragStart
-        menuFrame.Position = UDim2.new(
-            startPos.X.Scale,
+        menuFrame.Position = UDim2.new(startPos.X.Scale,
             startPos.X.Offset + delta.X,
             startPos.Y.Scale,
-            startPos.Y.Offset + delta.Y
-        )
+            startPos.Y.Offset + delta.Y)
     end
 end)
