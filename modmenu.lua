@@ -1,8 +1,12 @@
+-- Servicios
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local PhysicsService = game:GetService("PhysicsService")
 
+-- Jugador
 local player = Players.LocalPlayer
+
+-- Función para obtener el personaje y asegurarse de que esté cargado
 local function getCharacter()
 	local char = player.Character or player.CharacterAdded:Wait()
 	char:WaitForChild("Humanoid")
@@ -10,34 +14,35 @@ local function getCharacter()
 	return char
 end
 
+-- Crear grupo de colisión si no existe
+local COLLISION_GROUP = "NoClipGroup"
+pcall(function()
+	PhysicsService:CreateCollisionGroup(COLLISION_GROUP)
+	PhysicsService:CollisionGroupSetCollidable(COLLISION_GROUP, "Default", false)
+end)
+
+-- Función principal del menú
 local function setupGui()
 	local screenGui = Instance.new("ScreenGui")
-	screenGui.Name = "ModMenu"
+	screenGui.Name = "TraspasarGui"
 	screenGui.ResetOnSpawn = false
 	screenGui.Parent = player:WaitForChild("PlayerGui")
 
-	local function makeButton(name, posY, callback)
-		local btn = Instance.new("TextButton")
-		btn.Size = UDim2.new(0, 180, 0, 40)
-		btn.Position = UDim2.new(0, 20, 0, posY)
-		btn.Text = name
-		btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-		btn.TextColor3 = Color3.new(1, 1, 1)
-		btn.Font = Enum.Font.SourceSansBold
-		btn.TextSize = 18
-		btn.Parent = screenGui
-		btn.MouseButton1Click:Connect(callback)
-		return btn
-	end
+	-- Botón UI
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0, 180, 0, 45)
+	btn.Position = UDim2.new(0, 20, 0, 0.1)
+	btn.Text = "Traspasar Paredes"
+	btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	btn.TextColor3 = Color3.new(1, 1, 1)
+	btn.Font = Enum.Font.SourceSansBold
+	btn.TextSize = 18
+	btn.Parent = screenGui
 
-	-- Noclip con CollisionGroup
+	-- Estado de noclip
 	local noclip = false
-	local COLLISION_GROUP = "NoClipGroup"
-	pcall(function()
-		PhysicsService:CreateCollisionGroup(COLLISION_GROUP)
-		PhysicsService:CollisionGroupSetCollidable(COLLISION_GROUP, "Default", false)
-	end)
 
+	-- Activar/desactivar colisiones (excepto el suelo)
 	local function toggleNoclip()
 		noclip = not noclip
 		local char = getCharacter()
@@ -46,30 +51,14 @@ local function setupGui()
 				PhysicsService:SetPartCollisionGroup(part, noclip and COLLISION_GROUP or "Default")
 			end
 		end
+		btn.Text = noclip and "Desactivar Noclip" or "Traspasar Paredes"
+		btn.BackgroundColor3 = noclip and Color3.fromRGB(200, 50, 50) or Color3.fromRGB(60, 60, 60)
 	end
 
-	-- Velocidad
-	local fast = false
-	local function toggleSpeed()
-		local hum = getCharacter():WaitForChild("Humanoid")
-		fast = not fast
-		hum.WalkSpeed = fast and 32 or 16
-	end
-
-	-- Super salto
-	local jump = false
-	local function toggleJump()
-		local hum = getCharacter():WaitForChild("Humanoid")
-		jump = not jump
-		hum.JumpPower = jump and 120 or 50
-	end
-
-	makeButton("Noclip Activar", 0.1, toggleNoclip)
-	makeButton("Velocidad X2", 0.2, toggleSpeed)
-	makeButton("Súper Salto", 0.3, toggleJump)
+	btn.MouseButton1Click:Connect(toggleNoclip)
 end
 
--- Esperar a que todo esté listo
+-- Esperar a que PlayerGui esté listo
 if not player:FindFirstChild("PlayerGui") then
 	player.CharacterAdded:Wait()
 end
