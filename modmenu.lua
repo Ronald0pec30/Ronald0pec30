@@ -65,8 +65,6 @@ local function activarESP()
         end
     end
 end
-
--- Botón ESP
 local btnESP = Instance.new("TextButton")
 btnESP.Size = UDim2.new(0, 200, 0, 40)
 btnESP.Text = "🔍 Activar ESP"
@@ -77,17 +75,42 @@ btnESP.LayoutOrder = 1
 btnESP.Parent = menuFrame
 btnESP.MouseButton1Click:Connect(activarESP)
 
--- Funcionalidad Noclip
+-- Funcionalidad Noclip Mejorado
 local noclipOn = false
-RunService.Stepped:Connect(function()
-    if noclipOn and LocalPlayer.Character then
+local function enablePowerNoclip()
+    if LocalPlayer.Character then
+        -- Poner al Humanoid en estado de física para ignorar colisiones
+        local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+        end
+        -- Configurar todos los BaseParts
         for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
             if part:IsA("BasePart") then
                 part.CanCollide = false
+                part.Massless = true
+                part.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
             end
         end
     end
-end)
+end
+local function disablePowerNoclip()
+    if LocalPlayer.Character then
+        -- Restaurar estado de humanoide
+        local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid:ChangeState(Enum.HumanoidStateType.Running)
+        end
+        -- Restaurar colisión en los BaseParts
+        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+                part.Massless = false
+                part.CustomPhysicalProperties = nil
+            end
+        end
+    end
+end
 
 -- Botón Noclip
 local btnNoclip = Instance.new("TextButton")
@@ -100,7 +123,13 @@ btnNoclip.LayoutOrder = 2
 btnNoclip.Parent = menuFrame
 btnNoclip.MouseButton1Click:Connect(function()
     noclipOn = not noclipOn
-    btnNoclip.Text = noclipOn and "🚪 Atravesar Muros: ON" or "🚪 Atravesar Muros: OFF"
+    if noclipOn then
+        enablePowerNoclip()
+        btnNoclip.Text = "🚪 Atravesar Muros: ON"
+    else
+        disablePowerNoclip()
+        btnNoclip.Text = "🚪 Atravesar Muros: OFF"
+    end
 end)
 
 -- Funcionalidad Protección
@@ -131,8 +160,6 @@ local function removerShield()
     if weld then weld:Destroy() end
     shield, weld = nil, nil
 end
-
--- Botón Protección
 local btnShield = Instance.new("TextButton")
 btnShield.Size = UDim2.new(0, 200, 0, 40)
 btnShield.Text = "🛡️ Protección: OFF"
@@ -165,7 +192,6 @@ end)
 
 -- Hacer el menú movible arrastrando el botón
 local dragging, dragInput, dragStart, startPos
-
 menuButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = true
@@ -178,13 +204,11 @@ menuButton.InputBegan:Connect(function(input)
         end)
     end
 end)
-
 menuButton.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
         dragInput = input
     end
 end)
-
 UserInputService.InputChanged:Connect(function(input)
     if input == dragInput and dragging then
         local delta = input.Position - dragStart
