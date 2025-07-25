@@ -1,62 +1,84 @@
 -- Servicios
-local Players = game:GetService("Players")
+local Players   = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
-local player = Players.LocalPlayer
+local player       = Players.LocalPlayer
 local noclipActive = false
-local lastCFrame = nil
+local lastCFrame   = nil
 
--- Crear menú con botones
+-- Obtiene referencias que pueden cambiar
+local function getChar()
+	return player.Character or player.CharacterAdded:Wait()
+end
+
+-- Crea el menú
 local function setupGui()
 	local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
 	gui.Name = "ModMenu"
 	gui.ResetOnSpawn = false
 
-	local function makeButton(name, yPos)
+	local function makeButton(text, ypos)
 		local btn = Instance.new("TextButton")
-		btn.Name = name
-		btn.Size = UDim2.new(0, 200, 0, 40)
-		btn.Position = UDim2.new(0, 20, 0, yPos)
-		btn.Text = name
-		btn.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
-		btn.TextScaled = true
-		btn.Font = Enum.Font.GothamBold
-		btn.TextColor3 = Color3.new(0, 0, 0)
-		btn.Parent = gui
+		btn.Size            = UDim2.new(0,200,0,40)
+		btn.Position        = UDim2.new(0,20,0,ypos)
+		btn.BackgroundColor3= Color3.fromRGB(100,255,100)
+		btn.TextScaled      = true
+		btn.Font            = Enum.Font.GothamBold
+		btn.TextColor3      = Color3.new(0,0,0)
+		btn.Text            = text
+		btn.Parent          = gui
 		return btn
 	end
 
-	local noclipBtn = makeButton("Noclip: OFF", 20)
-	noclipBtn.MouseButton1Click:Connect(function()
+	local btn = makeButton("Noclip: OFF", 20)
+	btn.MouseButton1Click:Connect(function()
 		noclipActive = not noclipActive
-		noclipBtn.Text = noclipActive and "Noclip: ON" or "Noclip: OFF"
-		noclipBtn.BackgroundColor3 = noclipActive and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(100, 255, 100)
+		btn.Text = noclipActive and "Noclip: ON" or "Noclip: OFF"
+		btn.BackgroundColor3 = noclipActive
+			and Color3.fromRGB(255,100,100)
+			or Color3.fromRGB(100,255,100)
+
+		-- Al activar, inicializa lastCFrame y pone PlatformStand
+		local char = getChar()
+		local humanoid = char:FindFirstChildOfClass("Humanoid")
+		local hrp = char:FindFirstChild("HumanoidRootPart")
+		if noclipActive then
+			lastCFrame = hrp and hrp.CFrame
+			if humanoid then
+				humanoid.PlatformStand = true
+			end
+		else
+			lastCFrame = nil
+			if humanoid then
+				humanoid.PlatformStand = false
+			end
+		end
 	end)
 end
 
--- Noclip real: desactiva colisiones y fuerza la posición
-RunService.Stepped:Connect(function(_, dt)
-	if noclipActive and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-		local char = player.Character
-		local hrp = char:FindFirstChild("HumanoidRootPart")
+-- Cada frame de física
+RunService.Heartbeat:Connect(function()
+	if not noclipActive then return end
 
-		-- Desactivar colisiones
-		for _, part in pairs(char:GetDescendants()) do
-			if part:IsA("BasePart") then
-				part.CanCollide = false
-			end
+	local char = player.Character
+	if not char then return end
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	local humanoid = char:FindFirstChildOfClass("Humanoid")
+	if not hrp or not humanoid then return end
+
+	-- Desactiva colisiones de todas las partes
+	for _, part in ipairs(char:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.CanCollide = false
 		end
-
-		-- Mantener posición estable para evitar corrección
-		if lastCFrame then
-			hrp.CFrame = lastCFrame
-		end
-
-		lastCFrame = hrp.CFrame
-	else
-		lastCFrame = nil
 	end
+
+	-- Fuerza posición para atravesar muros
+	if lastCFrame then
+		hrp.CFrame = lastCFrame
+	end
+	lastCFrame = hrp.CFrame
 end)
 
+-- Lanzar GUI
 setupGui()
-
