@@ -1,78 +1,62 @@
--- Mod Menu Mejorado con Noclip Real, Velocidad y Súper Salto
+-- Servicios
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local PhysicsService = game:GetService("PhysicsService")
 
 local player = Players.LocalPlayer
-local function getCharacter()
-	local char = player.Character or player.CharacterAdded:Wait()
-	char:WaitForChild("Humanoid")
-	char:WaitForChild("HumanoidRootPart")
-	return char
-end
+local noclipActive = false
+local lastCFrame = nil
 
--- Crear CollisionGroup seguro
-local COLLISION_GROUP = "NoClipGroup"
-if not pcall(function() PhysicsService:GetCollisionGroupId(COLLISION_GROUP) end) then
-	PhysicsService:CreateCollisionGroup(COLLISION_GROUP)
-end
-PhysicsService:CollisionGroupSetCollidable(COLLISION_GROUP, "Default", false)
-
--- MOD MENU
+-- Crear menú con botones
 local function setupGui()
-	local screenGui = Instance.new("ScreenGui")
-	screenGui.Name = "ModMenu"
-	screenGui.ResetOnSpawn = false
-	screenGui.Parent = player:WaitForChild("PlayerGui")
+	local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+	gui.Name = "ModMenu"
+	gui.ResetOnSpawn = false
 
-	local function makeButton(name, posY, callback)
+	local function makeButton(name, yPos)
 		local btn = Instance.new("TextButton")
+		btn.Name = name
 		btn.Size = UDim2.new(0, 200, 0, 40)
-		btn.Position = UDim2.new(0, 20, 0, posY)
+		btn.Position = UDim2.new(0, 20, 0, yPos)
 		btn.Text = name
-		btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-		btn.TextColor3 = Color3.new(1, 1, 1)
-		btn.Font = Enum.Font.SourceSansBold
-		btn.TextSize = 18
-		btn.Parent = screenGui
-		btn.MouseButton1Click:Connect(callback)
+		btn.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+		btn.TextScaled = true
+		btn.Font = Enum.Font.GothamBold
+		btn.TextColor3 = Color3.new(0, 0, 0)
+		btn.Parent = gui
 		return btn
 	end
 
-	local noclip = false
-	local fast = false
-	local jump = false
+	local noclipBtn = makeButton("Noclip: OFF", 20)
+	noclipBtn.MouseButton1Click:Connect(function()
+		noclipActive = not noclipActive
+		noclipBtn.Text = noclipActive and "Noclip: ON" or "Noclip: OFF"
+		noclipBtn.BackgroundColor3 = noclipActive and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(100, 255, 100)
+	end)
+end
 
-	local function applyNoclip(state)
-		local char = getCharacter()
-		for _, part in ipairs(char:GetDescendants()) do
-			if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-				PhysicsService:SetPartCollisionGroup(part, state and COLLISION_GROUP or "Default")
+-- Noclip real: desactiva colisiones y fuerza la posición
+RunService.Stepped:Connect(function(_, dt)
+	if noclipActive and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+		local char = player.Character
+		local hrp = char:FindFirstChild("HumanoidRootPart")
+
+		-- Desactivar colisiones
+		for _, part in pairs(char:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = false
 			end
 		end
+
+		-- Mantener posición estable para evitar corrección
+		if lastCFrame then
+			hrp.CFrame = lastCFrame
+		end
+
+		lastCFrame = hrp.CFrame
+	else
+		lastCFrame = nil
 	end
-
-	makeButton("🔹 Noclip ON/OFF", 0.1, function()
-		noclip = not noclip
-		applyNoclip(noclip)
-	end)
-
-	makeButton("⚡ Velocidad X2", 0.2, function()
-		local hum = getCharacter():WaitForChild("Humanoid")
-		fast = not fast
-		hum.WalkSpeed = fast and 32 or 16
-	end)
-
-	makeButton("🚀 Súper salto", 0.3, function()
-		local hum = getCharacter():WaitForChild("Humanoid")
-		jump = not jump
-		hum.JumpPower = jump and 120 or 50
-	end)
-end
-
--- Espera y lanza interfaz
-if not player:FindFirstChild("PlayerGui") then
-	repeat task.wait() until player:FindFirstChild("PlayerGui")
-end
+end)
 
 setupGui()
+
