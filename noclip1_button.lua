@@ -1,73 +1,81 @@
-local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
+
+-- Mejor noclip con CollisionGroups para no caer al vacío
+local Players        = game:GetService("Players")
+local RunService     = game:GetService("RunService")
+local PhysicsService = game:GetService("PhysicsService")
+
+local player         = Players.LocalPlayer
+local character      = player.Character or player.CharacterAdded:Wait()
+local humanoid       = character:WaitForChild("Humanoid")
+local rootPart       = character:WaitForChild("HumanoidRootPart")
+
+-- Velocidades
+local normalWalkSpeed = humanoid.WalkSpeed
+local noclipSpeed     = normalWalkSpeed + 12
+
+-- Estado
 local noclip = false
-local defaultWalkSpeed = humanoid.WalkSpeed
+local COLLISION_GROUP = "NoClipGroup"
 
--- Crear GUI
-local ScreenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-ScreenGui.Name = "BetterNoclipGui"
-
--- Botón Noclip
-local noclipButton = Instance.new("TextButton")
-noclipButton.Size = UDim2.new(0, 140, 0, 40)
-noclipButton.Position = UDim2.new(0, 20, 0, 80)
-noclipButton.Text = "Activar Noclip"
-noclipButton.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
-noclipButton.TextColor3 = Color3.new(1, 1, 1)
-noclipButton.TextSize = 18
-noclipButton.Font = Enum.Font.SourceSansBold
-noclipButton.Parent = ScreenGui
-noclipButton.AutoButtonColor = true
-noclipButton.BorderSizePixel = 0
-
--- Botón Teleport
-local teleportButton = Instance.new("TextButton")
-teleportButton.Size = UDim2.new(0, 140, 0, 40)
-teleportButton.Position = UDim2.new(0, 20, 0, 130)
-teleportButton.Text = "TP a mi base"
-teleportButton.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
-teleportButton.TextColor3 = Color3.new(0, 0, 0)
-teleportButton.TextSize = 18
-teleportButton.Font = Enum.Font.SourceSansBold
-teleportButton.Parent = ScreenGui
-teleportButton.AutoButtonColor = true
-teleportButton.BorderSizePixel = 0
-
--- Noclip activador
-local function setNoclip(active)
-	noclip = active
-	if noclip then
-		noclipButton.Text = "Desactivar Noclip"
-		noclipButton.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
-		humanoid.WalkSpeed = 50 -- velocidad aumentada
-	else
-		noclipButton.Text = "Activar Noclip"
-		noclipButton.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
-		humanoid.WalkSpeed = defaultWalkSpeed
-	end
+-- Asegúrate de que existe el CollisionGroup y que Default no colisione con él
+if not pcall(function() PhysicsService:GetCollisionGroupId(COLLISION_GROUP) end) then
+    PhysicsService:CreateCollisionGroup(COLLISION_GROUP)
+    PhysicsService:CollisionGroupSetCollidable(COLLISION_GROUP, "Default", false)
 end
 
--- Loop anticaída (noclip estable)
-game:GetService("RunService").Stepped:Connect(function()
-	if noclip and character and humanoid and humanoid.Health > 0 then
-		for _, part in pairs(character:GetDescendants()) do
-			if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-				part.CanCollide = false
-			end
-		end
-	end
+-- Función para togglear noclip
+local function setNoclip(active)
+    noclip = active
+    humanoid.WalkSpeed = active and noclipSpeed or normalWalkSpeed
+
+    -- Asignar cada parte al grupo o devolverla a Default,
+    -- pero EXCLUYENDO el HumanoidRootPart para que siga colisionando con el suelo
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") and part ~= rootPart then
+            PhysicsService:SetPartCollisionGroup(part, active and COLLISION_GROUP or "Default")
+        end
+    end
+
+    -- Opcional: mantener siempre salud al máximo
+    if not active then
+        humanoid.Health = humanoid.MaxHealth
+    end
+end
+
+-- Hook para restaurar salud si quisieras, pero no usamos PlatformStand
+RunService.Heartbeat:Connect(function()
+    if noclip and humanoid.Health < humanoid.MaxHealth then
+        humanoid.Health = humanoid.MaxHealth
+    end
 end)
 
--- Acción botón noclip
-noclipButton.MouseButton1Click:Connect(function()
-	setNoclip(not noclip)
+-- Creación de la interfaz
+local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+screenGui.Name = "NoclipGui"
+
+local button = Instance.new("TextButton")
+button.Size               = UDim2.new(0, 160, 0, 50)
+button.Position           = UDim2.new(0, 20, 0, 80)
+button.TextSize           = 20
+button.Font               = Enum.Font.SourceSansBold
+button.BorderSizePixel    = 0
+button.BackgroundTransparency = 0.15
+button.Parent             = screenGui
+
+local function updateButton()
+    if noclip then
+        button.Text             = "Desactivar Noclip"
+        button.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+    else
+        button.Text             = "Activar Noclip"
+        button.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
+    end
+end
+
+button.MouseButton1Click:Connect(function()
+    setNoclip(not noclip)
+    updateButton()
 end)
 
--- Acción botón teleport
-teleportButton.MouseButton1Click:Connect(function()
-	if character and character:FindFirstChild("HumanoidRootPart") then
-		-- Cambia esta posición a donde esté tu base exactamente
-		character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(0, 10, 0))
-	end
-end)
+-- Inicializa texto/color
+updateButton()
