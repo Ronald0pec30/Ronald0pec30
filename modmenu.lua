@@ -1,77 +1,66 @@
 -- Servicios
-local Players       = game:GetService("Players")
-local RunService    = game:GetService("RunService")
-local PhysicsService= game:GetService("PhysicsService")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
--- Constants
-local COLLISION_GROUP = "NoClipGroup"
-
--- Jugador y personaje
 local player = Players.LocalPlayer
+
 local function getCharacter()
-    local c = player.Character or player.CharacterAdded:Wait()
-    c:WaitForChild("HumanoidRootPart")
-    return c
+    local char = player.Character or player.CharacterAdded:Wait()
+    char:WaitForChild("HumanoidRootPart")
+    return char
 end
 
--- Crear CollisionGroup y desactivar colisión con el mundo
-if not pcall(function() PhysicsService:GetCollisionGroupId(COLLISION_GROUP) end) then
-    PhysicsService:CreateCollisionGroup(COLLISION_GROUP)
-    PhysicsService:CollisionGroupSetCollidable(COLLISION_GROUP, "Default", false)
-end
+-- Posición guardada
+local savedCFrame = nil
 
--- Estado
-local noclip = false
-
--- GUI
+-- Crear menú con botones
 local function setupGui()
     local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-    gui.Name = "NoClipGui"
+    gui.Name = "TeleporterGui"
     gui.ResetOnSpawn = false
 
-    local btn = Instance.new("TextButton")
-    btn.Size             = UDim2.new(0,180,0,45)
-    btn.Position         = UDim2.new(0,20,0,50)
-    btn.Font             = Enum.Font.SourceSansBold
-    btn.TextSize         = 18
-    btn.TextColor3       = Color3.new(1,1,1)
-    btn.BackgroundColor3= Color3.fromRGB(60,60,60)
-    btn.Parent           = gui
-
-    local function updateButton()
-        if noclip then
-            btn.Text = "Desactivar Noclip"
-            btn.BackgroundColor3 = Color3.fromRGB(200,50,50)
-        else
-            btn.Text = "Traspasar Paredes"
-            btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-        end
+    local function makeButton(name, yPos)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, 200, 0, 50)
+        btn.Position = UDim2.new(0, 20, 0, yPos)
+        btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        btn.TextColor3 = Color3.new(1,1,1)
+        btn.Font = Enum.Font.SourceSansBold
+        btn.TextSize = 20
+        btn.Text = name
+        btn.Parent = gui
+        return btn
     end
 
-    btn.MouseButton1Click:Connect(function()
-        noclip = not noclip
-        updateButton()
+    -- Botón para guardar posición
+    local btnSave = makeButton("Guardar posición", 80)
+    btnSave.MouseButton1Click:Connect(function()
+        local hrp = getCharacter():FindFirstChild("HumanoidRootPart")
+        if hrp then
+            savedCFrame = hrp.CFrame
+            btnSave.Text = "Posición guardada ✅"
+            task.delay(1, function()
+                btnSave.Text = "Guardar posición"
+            end)
+        end
     end)
 
-    updateButton()
+    -- Botón para teletransportarse
+    local btnTeleport = makeButton("Ir a posición", 150)
+    btnTeleport.MouseButton1Click:Connect(function()
+        if savedCFrame then
+            local char = getCharacter()
+            char:PivotTo(savedCFrame)
+        else
+            btnTeleport.Text = "No hay posición 💡"
+            task.delay(1, function()
+                btnTeleport.Text = "Ir a posición"
+            end)
+        end
+    end)
 end
 
--- Loop que anula colisiones CONSTANTEMENTE
-RunService.Stepped:Connect(function()
-    if not noclip then return end
-    local char = player.Character
-    if not char then return end
-
-    for _, part in ipairs(char:GetDescendants()) do
-        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-            -- Forzar CollisionGroup y CanCollide = false cada frame
-            PhysicsService:SetPartCollisionGroup(part, COLLISION_GROUP)
-            part.CanCollide = false
-        end
-    end
-end)
-
--- Inicializar GUI cuando PlayerGui esté listo
+-- Iniciar GUI
 if player:FindFirstChild("PlayerGui") then
     setupGui()
 else
